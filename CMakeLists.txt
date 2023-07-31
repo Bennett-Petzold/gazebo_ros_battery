@@ -1,79 +1,67 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(gazebo_ros_battery)
 
-  find_package(catkin REQUIRED COMPONENTS
-    gazebo_dev
-    message_generation
-    gazebo_msgs
-    roscpp
-    nodelet
-    std_srvs
-    sensor_msgs
-    rosconsole
-    std_msgs
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# find dependencies
+find_package(ament_cmake REQUIRED)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
+find_package(gazebo REQUIRED)
+find_package(gazebo_ros REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/Reset.srv"
+  "srv/SetCharge.srv" 
+  "srv/SetTemperature.srv"
+  DEPENDENCIES std_msgs
   )
 
-  find_package(Boost REQUIRED COMPONENTS thread)
 
-  include_directories(include
-    ${catkin_INCLUDE_DIRS}
-    ${Boost_INCLUDE_DIRS}
-  )
+include_directories(include)
+include_directories(${GAZEBO_INCLUDE_DIRS})
+link_directories(${GAZEBO_LIBRARY_DIRS})
+#list(APPEND CMAKE_CXX_FLAGS "${GAZEBO_CXX_FLAGS}")
 
-  link_directories(
-    ${catkin_LIBRARY_DIRS}
-  )
+add_library(battery_plugin SHARED src/gz_ros_battery.cc)
+add_executable(test_clients src/test_clients.cc)
 
-  add_service_files(
-    FILES
-    Reset.srv
-    SetCharge.srv
-    SetTemperature.srv
-  )
+ament_export_dependencies(rosidl_default_runtime)
+ament_target_dependencies(battery_plugin rclcpp sensor_msgs std_msgs gazebo_ros)
+ament_target_dependencies(test_clients rclcpp sensor_msgs std_msgs gazebo_ros)
 
-  generate_messages(
-    DEPENDENCIES std_msgs
-  )
 
-  catkin_package(
-    INCLUDE_DIRS include
-    LIBRARIES
-    CATKIN_DEPENDS
-    message_runtime
-    gazebo_msgs
-    roscpp
-    nodelet
-    std_srvs
-    sensor_msgs
-    rosconsole
-    std_msgs
-  )
+rosidl_target_interfaces(battery_plugin
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-###########
-## Build ##
-###########
+rosidl_target_interfaces(test_clients
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-add_library(gazebo_ros_battery src/gazebo_ros_battery.cpp)
-target_link_libraries(gazebo_ros_battery gazebo_ros_utils ${GAZEBO_LIBRARIES} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-add_dependencies(gazebo_ros_battery ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-#############
-## Install ##
-#############
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h"
-  PATTERN ".svn" EXCLUDE
-)
+target_link_libraries(battery_plugin ${GAZEBO_LIBRARIES})
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
 
 install(TARGETS
-  gazebo_ros_battery
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+  test_clients
+  DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY xacro
-    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
+ament_package()
